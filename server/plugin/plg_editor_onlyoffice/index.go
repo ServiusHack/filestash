@@ -146,6 +146,31 @@ func StaticHandler(res http.ResponseWriter, req *http.Request) {
 	reverseProxy.ServeHTTP(res, req)
 }
 
+type OnlyOfficeConfigObject struct {
+	Token        string        `json:"token"`
+	DocumentType string        `json:"documentType"`
+	Type         string        `json:"type"`
+	Document struct {
+		Title    string        `json:"title"`
+		URL      string        `json:"url" `
+		FileType string        `json:"fileType" `
+		Key      string        `json:"key" `
+	}                          `json:"document"`
+	EditorConfig struct {
+		CallbackURL string     `json:"callbackUrl"`
+		Mode        string     `json:"mode" `
+		Customization struct {
+			Autosave      bool `json:"autosave"`
+			Forcesave     bool `json:"forcesave"`
+			CompactHeader bool `json:"compactHeader"`
+		}                      `json:"customization" `
+		User struct {
+			ID   string        `json:"id"`
+			Name string        `json:"name"`
+		}                      `json:"user" `
+	}                          `json:"editorConfig"`
+}
+
 func IframeContentHandler(ctx App, res http.ResponseWriter, req *http.Request) {
 	if model.CanRead(&ctx) == false {
 		SendErrorResult(res, ErrPermissionDenied)
@@ -284,6 +309,29 @@ func IframeContentHandler(ctx App, res http.ResponseWriter, req *http.Request) {
 	}(path)
 	filetype = strings.TrimPrefix(filepath.Ext(filename), ".")
 	OnlyOfficeCache.Set(key, &OnlyOfficeCacheData{path, ctx.Backend.Save, ctx.Backend.Cat}, cache.DefaultExpiration)
+
+	config := OnlyOfficeConfigObject{}
+	config.Token = "foobar"
+	config.DocumentType = contentType
+	config.Type = oodsDevice
+	config.Document.Title = filename
+	config.Document.URL = filestashServerLocation + "/onlyoffice/content?key=" + key
+	config.Document.FileType = filetype
+	config.Document.Key = key
+	config.EditorConfig.CallbackURL = filestashServerLocation + "/onlyoffice/event"
+	config.EditorConfig.Mode = oodsMode
+	config.EditorConfig.Customization.Autosave = false
+	config.EditorConfig.Customization.Forcesave = true
+	config.EditorConfig.Customization.CompactHeader = true
+	config.EditorConfig.User.ID = userId
+	config.EditorConfig.User.Name = username
+
+	configString, err := json.Marshal(config)
+	if err != nil {
+		SendErrorResult(res, err)
+		return
+	}
+
 	res.Write([]byte(fmt.Sprintf(`<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -300,30 +348,7 @@ func IframeContentHandler(ctx App, res http.ResponseWriter, req *http.Request) {
       else sendError("[error] Can't reach the onlyoffice server");
 
       function loadApplication() {
-          new DocsAPI.DocEditor("placeholder", {
-              "token": "foobar",
-              "documentType": "%s",
-              "type": "%s",
-              "document": {
-                  "title": "%s",
-                  "url": "%s/onlyoffice/content?key=%s",
-                  "fileType": "%s",
-                  "key": "%s"
-              },
-              "editorConfig": {
-                  "callbackUrl": "%s/onlyoffice/event",
-                  "mode": "%s",
-                  "customization": {
-                      "autosave": false,
-                      "forcesave": true,
-                      "compactHeader": true
-                  },
-                  "user": {
-                      "id": "%s",
-                      "name": "%s"
-                  }
-              }
-          });
+          new DocsAPI.DocEditor("placeholder", %s);
       }
       function sendError(message){
           let $el = document.createElement("p");
@@ -334,16 +359,7 @@ func IframeContentHandler(ctx App, res http.ResponseWriter, req *http.Request) {
     </script>
   </body>
 </html>`,
-		contentType,
-		oodsDevice,
-		filename,
-		filestashServerLocation, key,
-		filetype,
-		key,
-		filestashServerLocation,
-		oodsMode,
-		userId,
-		username,
+		configString,
 	)))
 }
 
