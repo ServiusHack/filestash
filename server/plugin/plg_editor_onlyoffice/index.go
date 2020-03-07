@@ -3,6 +3,7 @@ package plg_editor_onlyoffice
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/mux"
 	. "github.com/mickael-kerjean/filestash/server/common"
 	"github.com/mickael-kerjean/filestash/server/ctrl"
@@ -39,7 +40,7 @@ func init() {
 			}
 			f.Name = "enable"
 			f.Type = "enable"
-			f.Target = []string{"onlyoffice_server"}
+			f.Target = []string{"onlyoffice_server", "onlyoffice_use_jwt"}
 			f.Description = "Enable/Disable the office suite to manage word, excel and powerpoint documents. This setting requires a restart to comes into effect"
 			f.Default = false
 			if u := os.Getenv("ONLYOFFICE_URL"); u != "" {
@@ -61,6 +62,36 @@ func init() {
 		if u := os.Getenv("ONLYOFFICE_URL"); u != "" {
 			f.Default = u
 			f.Placeholder = fmt.Sprintf("Default: '%s'", u)
+		}
+		return f
+	})
+	Config.Get("features.office.use_jwt").Schema(func(f *FormElement) *FormElement {
+		if f == nil {
+			f = &FormElement{}
+		}
+		f.Id = "onlyoffice_use_jwt"
+		f.Name = "use_jwt"
+		f.Type = "enable"
+		f.Target = []string{"onlyoffice_jwt_secret"}
+		f.Description = "Use a JWT (JSON Web Token)"
+		f.Default = false
+		f.Placeholder = "Default: false"
+		if u := os.Getenv("ONLYOFFICE_JWT_SECRET"); u != "" {
+			f.Default = true
+		}
+		return f
+	})
+	Config.Get("features.office.jwt_secret").Schema(func(f *FormElement) *FormElement {
+		if f == nil {
+			f = &FormElement{}
+		}
+		f.Id = "onlyoffice_jwt_secret"
+		f.Name = "jwt_secret"
+		f.Type = "text"
+		f.Description = "Secret for the JWT (JSON Web Token)"
+		f.Default = ""
+		if u := os.Getenv("ONLYOFFICE_JWT_SECRET"); u != "" {
+			f.Default = u
 		}
 		return f
 	})
@@ -169,6 +200,11 @@ type OnlyOfficeConfigObject struct {
 			Name string        `json:"name"`
 		}                      `json:"user" `
 	}                          `json:"editorConfig"`
+
+}
+
+func (OnlyOfficeConfigObject) Valid() error {
+	return nil
 }
 
 func IframeContentHandler(ctx App, res http.ResponseWriter, req *http.Request) {
@@ -311,7 +347,6 @@ func IframeContentHandler(ctx App, res http.ResponseWriter, req *http.Request) {
 	OnlyOfficeCache.Set(key, &OnlyOfficeCacheData{path, ctx.Backend.Save, ctx.Backend.Cat}, cache.DefaultExpiration)
 
 	config := OnlyOfficeConfigObject{}
-	config.Token = "foobar"
 	config.DocumentType = contentType
 	config.Type = oodsDevice
 	config.Document.Title = filename
@@ -325,6 +360,18 @@ func IframeContentHandler(ctx App, res http.ResponseWriter, req *http.Request) {
 	config.EditorConfig.Customization.CompactHeader = true
 	config.EditorConfig.User.ID = userId
 	config.EditorConfig.User.Name = username
+
+	if Config.Get("features.office.use_jwt").Bool() {
+		signingKey := []byte(Config.Get("features.office.jwt_secret").String())
+
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, config)
+		signedString, err := token.SignedString(signingKey)
+		if err != nil {
+			SendErrorResult(res, err)
+			return
+		}
+		config.Token = signedString
+	}
 
 	configString, err := json.Marshal(config)
 	if err != nil {
