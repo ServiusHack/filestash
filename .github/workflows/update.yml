@@ -1,0 +1,27 @@
+name: Rebase fork on upstream
+
+on:
+  push:
+    branches:
+      - update_script
+  schedule:
+    - cron: '0 0 * * *'
+
+jobs:
+  run:
+    name: Check and rebase
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install required tools
+        run: sudo apt install -y curl git jq
+      - name: Checkout
+        uses: actions/checkout@v1
+        with:
+          fetch-depth: 0
+      - name: Run script
+        run: ./update.sh
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          force: true
