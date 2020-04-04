@@ -20,8 +20,11 @@ merge_base=$(git merge-base origin/master $long_hash)
 git checkout origin/master
 
 if [[ "$merge_base" != "$long_hash" ]]; then
-  echo "Rebasing from $merge_base to $long_hash"
-  git rebase $long_hash
+  echo "origin/master is based on $merge_base but upstream is at $long_hash"
+  echo "Rebuilding the fork"
+  git reset --hard $long_hash
+  git merge --no-edit ci_for_fork
+  git merge --no-edit onlyoffice_jwt
 else
   echo "origin/master is based on latest upstream/master ($long_hash)"
 fi
