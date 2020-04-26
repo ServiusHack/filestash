@@ -23,6 +23,9 @@ if [[ "$merge_base" != "$long_hash" ]]; then
   echo "origin/master is based on $merge_base but upstream is at $long_hash"
   echo "Rebuilding the fork"
   git reset --hard $long_hash
+
+  git config user.name "GitHub CI"
+
   git merge --no-edit origin/ci_for_fork
   git merge --no-edit origin/onlyoffice_jwt
 else
