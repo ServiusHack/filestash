@@ -23,8 +23,8 @@ if [[ "$merge_base" != "$long_hash" ]]; then
   echo "origin/master is based on $merge_base but upstream is at $long_hash"
   echo "Rebuilding the fork"
   git reset --hard $long_hash
-  git merge --no-edit ci_for_fork
-  git merge --no-edit onlyoffice_jwt
+  git merge --no-edit origin/ci_for_fork
+  git merge --no-edit origin/onlyoffice_jwt
 else
   echo "origin/master is based on latest upstream/master ($long_hash)"
 fi
