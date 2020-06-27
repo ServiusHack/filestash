@@ -5,13 +5,9 @@ set -e
 git remote add upstream https://github.com/mickael-kerjean/filestash.git
 git fetch upstream
 
-tags=$(curl 'https://hub.docker.com/v2/repositories/machines/filestash/tags?page_size=10')
+long_hash=$(git rev-parse upstream/master)
 
-latest_digest=$(echo $tags | jq '.results[] | select(.name == "latest") | .images[0].digest')
-short_hash=$(echo $tags | jq -r ".results[] | select(.images[0].digest == $latest_digest and .name != \"latest\") | .name")
-long_hash=$(git rev-parse $short_hash)
-
-echo "Latest upstream commit from Docker Hub: $long_hash"
+echo "Latest upstream commit: $long_hash"
 echo "Lastet origin commit: $(git rev-parse origin/master)"
 
 merge_base=$(git merge-base origin/master $long_hash)
