@@ -8,7 +8,7 @@ git fetch upstream
 long_hash=$(git rev-parse upstream/master)
 
 echo "Latest upstream commit: $long_hash"
-echo "Lastet origin commit: $(git rev-parse origin/master)"
+echo "Latest origin commit: $(git rev-parse origin/master)"
 
 merge_base=$(git merge-base origin/master $long_hash)
 
